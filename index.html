@@ -80,22 +80,40 @@
     <script>
       (function () {
         var MESSAGE = "End Rumination Through Decisive Acceptance";
-        var wheel = document.getElementById("mantra-wheel");
-        var chars = Array.from(MESSAGE);
-        var total = chars.length;
+        // Extra letter-slots between words (including Acceptance → End wrap).
+        // Higher = more even/open word spacing. 1 ≈ single space; 2–3 feels even.
+        var WORD_GAP_SLOTS = 2.5;
 
-        for (var i = 0; i < total; i++) {
+        var wheel = document.getElementById("mantra-wheel");
+        var words = MESSAGE.trim().split(/\s+/);
+        var totalLetters = 0;
+        for (var w = 0; w < words.length; w++) totalLetters += words[w].length;
+
+        var gapCount = words.length; // one gap after every word, including wrap
+        var totalSlots = totalLetters + gapCount * WORD_GAP_SLOTS;
+        var slotAngle = 360 / totalSlots;
+        var angle = 0;
+
+        function placeChar(ch, deg) {
           var span = document.createElement("span");
           span.className = "mantra-char";
-          span.textContent = chars[i] === " " ? "\u00A0" : chars[i];
-          var angle = (360 / total) * i;
+          span.textContent = ch;
           // Absolute radius (inherited --radius). Percent translateY would be
           // relative to each glyph box and collapse the circle to the center.
           span.style.transform =
             "translate(-50%, -50%) rotate(" +
-            angle +
+            deg +
             "deg) translateY(calc(-1 * var(--radius)))";
           wheel.appendChild(span);
+        }
+
+        for (var i = 0; i < words.length; i++) {
+          var word = words[i];
+          for (var c = 0; c < word.length; c++) {
+            placeChar(word.charAt(c), angle);
+            angle += slotAngle;
+          }
+          angle += slotAngle * WORD_GAP_SLOTS;
         }
       })();
     </script>
