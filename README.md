@@ -20,6 +20,6 @@ Then visit http://127.0.0.1:43127
 
 ## GitHub Pages
 
-This repo is meant to be published from the `main` branch root (or `/docs` if configured that way). After Pages is enabled, the site is available at:
+Published from the `main` branch root:
 
-`https://<github-username>.github.io/Spining-Rumination/`
+**https://krdiamond.github.io/Spining-Rumination/**
