@@ -32,14 +32,12 @@ Examples: `10s` (fast), `28s` (default), `60s` (slow).
 
 ## GitHub Pages
 
-Published from the `main` branch root:
-
 **https://krdiamond.github.io/Spining-Rumination/**
 
-### Ascii Ritual (implode)
+Starts very slow, speeds up over 60 seconds, then implodes to a center point.
 
-Timed destruction version — starts very slow, ramps for 60s to very fast, then collapses to a point:
+Same page also at:
 
 **https://krdiamond.github.io/Spining-Rumination/dev/ascii-ritual/**
 
-Source: `dev/ascii-ritual/index.html`
+Sources: root `index.html` and `dev/ascii-ritual/index.html`
