@@ -30,22 +30,8 @@
         overflow: hidden;
       }
 
-      main,
-      .ring,
-      .ring-char {
-        outline: none;
-        border: none;
-        box-shadow: none;
-      }
-
-      main:focus,
-      main:focus-visible,
-      .ring:focus,
-      .ring:focus-visible {
-        outline: none;
-      }
-
-      .ring {
+      /* Class must NOT be "ring" — Tailwind's `ring` utility draws a blue box. */
+      .mantra-wheel {
         --radius: min(36vmin, 240px);
         position: relative;
         width: min(78vmin, 520px);
@@ -53,7 +39,7 @@
         animation: spin var(--spin-duration) linear infinite;
       }
 
-      .ring-char {
+      .mantra-char {
         position: absolute;
         left: 50%;
         top: 50%;
@@ -76,7 +62,7 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .ring {
+        .mantra-wheel {
           animation: none;
         }
       }
@@ -85,8 +71,8 @@
   <body class="bg-white">
     <main class="flex h-full w-full items-center justify-center bg-white">
       <div
-        class="ring"
-        id="ring"
+        class="mantra-wheel"
+        id="mantra-wheel"
         role="img"
         aria-label="End Rumination Through Decisive Acceptance"
       ></div>
@@ -94,13 +80,13 @@
     <script>
       (function () {
         var MESSAGE = "End Rumination Through Decisive Acceptance";
-        var ring = document.getElementById("ring");
+        var wheel = document.getElementById("mantra-wheel");
         var chars = Array.from(MESSAGE);
         var total = chars.length;
 
         for (var i = 0; i < total; i++) {
           var span = document.createElement("span");
-          span.className = "ring-char";
+          span.className = "mantra-char";
           span.textContent = chars[i] === " " ? "\u00A0" : chars[i];
           var angle = (360 / total) * i;
           // Absolute radius (inherited --radius). Percent translateY would be
@@ -109,7 +95,7 @@
             "translate(-50%, -50%) rotate(" +
             angle +
             "deg) translateY(calc(-1 * var(--radius)))";
-          ring.appendChild(span);
+          wheel.appendChild(span);
         }
       })();
     </script>
