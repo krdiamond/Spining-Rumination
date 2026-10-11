@@ -1,25 +1,25 @@
-# Fortune Teller Ring
+# Spining-Rumination
 
-A minimal one-screen site: the line **End Rumination Through Decisive Acceptance** set in a free pixel font and arranged on a ring that spins continuously in 2D.
+A minimal static site for the Fortune Teller Ring: the line **End Rumination Through Decisive Acceptance** set in a free pixel font and arranged on a ring that spins continuously in 2D.
 
 ## Stack
 
-- Vite
-- Tailwind CSS v4 (`@tailwindcss/vite`)
+- Plain HTML (no bundler, no framework)
+- [Tailwind CSS Play CDN](https://tailwindcss.com/docs/installation/play-cdn)
 - [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) (Google Fonts)
 
 ## Run locally
 
-```bash
-npm install
-npm run dev
-```
-
-The dev server binds to **http://127.0.0.1:43127**.
-
-## Build
+Open `index.html` in a browser, or serve the folder with any static server:
 
 ```bash
-npm run build
-npm run preview
+python3 -m http.server 43127
 ```
+
+Then visit http://127.0.0.1:43127
+
+## GitHub Pages
+
+This repo is meant to be published from the `main` branch root (or `/docs` if configured that way). After Pages is enabled, the site is available at:
+
+`https://<github-username>.github.io/Spining-Rumination/`

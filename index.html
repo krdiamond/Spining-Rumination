@@ -10,9 +10,80 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      .ring {
+        position: relative;
+        width: min(78vmin, 520px);
+        height: min(78vmin, 520px);
+        animation: spin 28s linear infinite;
+      }
+
+      .ring-char {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        font-family: "Press Start 2P", monospace;
+        font-size: clamp(0.55rem, 1.6vmin, 0.85rem);
+        color: #111111;
+        line-height: 1;
+        transform-origin: center;
+        user-select: none;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .ring {
+          animation: none;
+        }
+      }
+    </style>
   </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+  <body class="bg-white">
+    <main
+      class="flex h-full w-full items-center justify-center bg-white"
+      aria-label="End Rumination Through Decisive Acceptance"
+    >
+      <div class="ring" id="ring" role="img" aria-label="End Rumination Through Decisive Acceptance"></div>
+    </main>
+    <script>
+      (function () {
+        var MESSAGE = "End Rumination Through Decisive Acceptance";
+        var RING_RADIUS = 42;
+        var ring = document.getElementById("ring");
+        var chars = Array.from(MESSAGE);
+        var total = chars.length;
+
+        for (var i = 0; i < total; i++) {
+          var span = document.createElement("span");
+          span.className = "ring-char";
+          span.textContent = chars[i] === " " ? "\u00A0" : chars[i];
+          var angle = (360 / total) * i;
+          span.style.transform =
+            "translate(-50%, -50%) rotate(" +
+            angle +
+            "deg) translateY(-" +
+            RING_RADIUS +
+            "%)";
+          ring.appendChild(span);
+        }
+      })();
+    </script>
   </body>
 </html>
