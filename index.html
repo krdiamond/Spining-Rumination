@@ -21,6 +21,7 @@
       }
 
       .ring {
+        --radius: min(36vmin, 240px);
         position: relative;
         width: min(78vmin, 520px);
         height: min(78vmin, 520px);
@@ -32,11 +33,12 @@
         left: 50%;
         top: 50%;
         font-family: "Press Start 2P", monospace;
-        font-size: clamp(0.55rem, 1.6vmin, 0.85rem);
+        font-size: clamp(0.65rem, 2vmin, 1rem);
         color: #111111;
         line-height: 1;
         transform-origin: center;
         user-select: none;
+        white-space: pre;
       }
 
       @keyframes spin {
@@ -65,7 +67,6 @@
     <script>
       (function () {
         var MESSAGE = "End Rumination Through Decisive Acceptance";
-        var RING_RADIUS = 42;
         var ring = document.getElementById("ring");
         var chars = Array.from(MESSAGE);
         var total = chars.length;
@@ -75,12 +76,12 @@
           span.className = "ring-char";
           span.textContent = chars[i] === " " ? "\u00A0" : chars[i];
           var angle = (360 / total) * i;
+          // Absolute radius (inherited --radius). Percent translateY would be
+          // relative to each glyph box and collapse the circle to the center.
           span.style.transform =
             "translate(-50%, -50%) rotate(" +
             angle +
-            "deg) translateY(-" +
-            RING_RADIUS +
-            "%)";
+            "deg) translateY(calc(-1 * var(--radius)))";
           ring.appendChild(span);
         }
       })();
