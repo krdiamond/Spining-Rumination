@@ -12,6 +12,16 @@
     />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      /*
+       * SPEED CONTROL
+       * Change --spin-duration below.
+       * Smaller number = faster spin. Larger = slower.
+       * Examples: 10s (fast), 28s (default), 60s (slow)
+       */
+      :root {
+        --spin-duration: 28s;
+      }
+
       html,
       body {
         height: 100%;
@@ -20,12 +30,27 @@
         overflow: hidden;
       }
 
+      main,
+      .ring,
+      .ring-char {
+        outline: none;
+        border: none;
+        box-shadow: none;
+      }
+
+      main:focus,
+      main:focus-visible,
+      .ring:focus,
+      .ring:focus-visible {
+        outline: none;
+      }
+
       .ring {
         --radius: min(36vmin, 240px);
         position: relative;
         width: min(78vmin, 520px);
         height: min(78vmin, 520px);
-        animation: spin 28s linear infinite;
+        animation: spin var(--spin-duration) linear infinite;
       }
 
       .ring-char {
@@ -58,11 +83,13 @@
     </style>
   </head>
   <body class="bg-white">
-    <main
-      class="flex h-full w-full items-center justify-center bg-white"
-      aria-label="End Rumination Through Decisive Acceptance"
-    >
-      <div class="ring" id="ring" role="img" aria-label="End Rumination Through Decisive Acceptance"></div>
+    <main class="flex h-full w-full items-center justify-center bg-white">
+      <div
+        class="ring"
+        id="ring"
+        role="img"
+        aria-label="End Rumination Through Decisive Acceptance"
+      ></div>
     </main>
     <script>
       (function () {

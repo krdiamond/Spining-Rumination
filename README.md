@@ -18,6 +18,18 @@ python3 -m http.server 43127
 
 Then visit http://127.0.0.1:43127
 
+## Adjust spin speed
+
+Near the top of `index.html`, inside the `<style>` block:
+
+```css
+:root {
+  --spin-duration: 28s; /* smaller = faster, larger = slower */
+}
+```
+
+Examples: `10s` (fast), `28s` (default), `60s` (slow).
+
 ## GitHub Pages
 
 Published from the `main` branch root:
