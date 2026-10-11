@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ascii Ritual — Implode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /*
+       * TIMING / SPEED (also mirrored in the script CONFIG below)
+       * Ramp: slow → very fast over RAMP_MS, then implode.
+       */
+      :root {
+        --radius: min(36vmin, 240px);
+        --collapse: 1; /* 1 = full circle, 0 = single point at center */
+        --char-scale: 1;
+        --char-opacity: 1;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      /* Do not name this class "ring" — Tailwind's ring utility draws a blue box. */
+      .mantra-wheel {
+        position: relative;
+        width: min(78vmin, 520px);
+        height: min(78vmin, 520px);
+        will-change: transform;
+      }
+
+      .mantra-char {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        font-family: "Press Start 2P", monospace;
+        font-size: clamp(0.65rem, 2vmin, 1rem);
+        color: #111111;
+        line-height: 1;
+        transform-origin: center;
+        user-select: none;
+        white-space: pre;
+        opacity: var(--char-opacity);
+        will-change: transform, opacity;
+      }
+
+      .mantra-wheel.is-imploding .mantra-char {
+        transition:
+          opacity 0.35s ease-in,
+          transform 0.01s linear;
+      }
+    </style>
+  </head>
+  <body class="bg-white">
+    <main class="flex h-full w-full items-center justify-center bg-white">
+      <div
+        class="mantra-wheel"
+        id="mantra-wheel"
+        role="img"
+        aria-label="End Rumination Through Decisive Acceptance"
+      ></div>
+    </main>
+    <script>
+      (function () {
+        /*
+         * CONFIG — easy knobs
+         * RAMP_MS: time from slow → max speed before implode (default 60s)
+         * START_RPS / END_RPS: revolutions per second at start / end of ramp
+         * IMPLODE_MS: how long the collapse to the center takes
+         * WORD_GAP_SLOTS: space between words on the circle
+         */
+        var CONFIG = {
+          MESSAGE: "End Rumination Through Decisive Acceptance",
+          WORD_GAP_SLOTS: 2.5,
+          RAMP_MS: 60 * 1000,
+          START_RPS: 0.03, // ~1 rev / 33s — very slow
+          END_RPS: 8, // very very fast
+          IMPLODE_MS: 1200,
+        };
+
+        var wheel = document.getElementById("mantra-wheel");
+        var reduceMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
+
+        var words = CONFIG.MESSAGE.trim().split(/\s+/);
+        var totalLetters = 0;
+        for (var w = 0; w < words.length; w++) totalLetters += words[w].length;
+
+        var gapCount = words.length;
+        var totalSlots = totalLetters + gapCount * CONFIG.WORD_GAP_SLOTS;
+        var slotAngle = 360 / totalSlots;
+        var angle = 0;
+        var charEls = [];
+
+        function placeChar(ch, deg) {
+          var span = document.createElement("span");
+          span.className = "mantra-char";
+          span.textContent = ch;
+          span.dataset.angle = String(deg);
+          span.style.transform =
+            "translate(-50%, -50%) rotate(" +
+            deg +
+            "deg) translateY(calc(-1 * var(--radius) * var(--collapse))) scale(var(--char-scale))";
+          wheel.appendChild(span);
+          charEls.push(span);
+        }
+
+        for (var i = 0; i < words.length; i++) {
+          var word = words[i];
+          for (var c = 0; c < word.length; c++) {
+            placeChar(word.charAt(c), angle);
+            angle += slotAngle;
+          }
+          angle += slotAngle * CONFIG.WORD_GAP_SLOTS;
+        }
+
+        function easeInCubic(t) {
+          return t * t * t;
+        }
+
+        function setCollapse(collapse, scale, opacity) {
+          document.documentElement.style.setProperty(
+            "--collapse",
+            String(collapse)
+          );
+          document.documentElement.style.setProperty(
+            "--char-scale",
+            String(scale)
+          );
+          document.documentElement.style.setProperty(
+            "--char-opacity",
+            String(opacity)
+          );
+          // Refresh transforms so --collapse/--char-scale apply
+          for (var i = 0; i < charEls.length; i++) {
+            var el = charEls[i];
+            var deg = el.dataset.angle;
+            el.style.transform =
+              "translate(-50%, -50%) rotate(" +
+              deg +
+              "deg) translateY(calc(-1 * var(--radius) * var(--collapse))) scale(var(--char-scale))";
+          }
+        }
+
+        var rotation = 0; // degrees
+        var lastTs = null;
+        var startTs = null;
+        var phase = "ramp"; // ramp | implode | done
+
+        function implode(now) {
+          phase = "implode";
+          wheel.classList.add("is-imploding");
+          var implodeStart = now;
+          var startRotation = rotation;
+
+          function implodeFrame(ts) {
+            var u = Math.min(1, (ts - implodeStart) / CONFIG.IMPLODE_MS);
+            // Ease-in: linger, then snap hard to the center
+            var e = u * u * u;
+            var collapse = 1 - e;
+            var scale = 1 - e * 0.85;
+            var opacity = u < 0.85 ? 1 : 1 - (u - 0.85) / 0.15;
+
+            // Keep whipping around while collapsing
+            rotation = startRotation + e * 720;
+            wheel.style.transform = "rotate(" + rotation + "deg)";
+            setCollapse(collapse, scale, opacity);
+
+            if (u < 1) {
+              requestAnimationFrame(implodeFrame);
+            } else {
+              phase = "done";
+              setCollapse(0, 0, 0);
+              wheel.style.transform = "rotate(" + rotation + "deg)";
+            }
+          }
+
+          requestAnimationFrame(implodeFrame);
+        }
+
+        function tick(ts) {
+          if (startTs === null) startTs = ts;
+          if (lastTs === null) lastTs = ts;
+          var dt = Math.min(0.05, (ts - lastTs) / 1000);
+          lastTs = ts;
+
+          if (phase === "ramp") {
+            var t = Math.min(1, (ts - startTs) / CONFIG.RAMP_MS);
+            var rps =
+              CONFIG.START_RPS +
+              (CONFIG.END_RPS - CONFIG.START_RPS) * easeInCubic(t);
+            rotation += rps * 360 * dt;
+            wheel.style.transform = "rotate(" + rotation + "deg)";
+
+            if (t >= 1) {
+              implode(ts);
+              return;
+            }
+            requestAnimationFrame(tick);
+          }
+        }
+
+        if (reduceMotion) {
+          // Still show the sigil; skip the long acceleration / implode.
+          return;
+        }
+
+        requestAnimationFrame(tick);
+      })();
+    </script>
+  </body>
+</html>

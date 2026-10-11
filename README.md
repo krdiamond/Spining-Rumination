@@ -35,3 +35,11 @@ Examples: `10s` (fast), `28s` (default), `60s` (slow).
 Published from the `main` branch root:
 
 **https://krdiamond.github.io/Spining-Rumination/**
+
+### Ascii Ritual (implode)
+
+Timed destruction version — starts very slow, ramps for 60s to very fast, then collapses to a point:
+
+**https://krdiamond.github.io/Spining-Rumination/dev/ascii-ritual/**
+
+Source: `dev/ascii-ritual/index.html`
