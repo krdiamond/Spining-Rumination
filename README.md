@@ -26,14 +26,15 @@ In `index.html` (and `dev/ascii-ritual/index.html`), edit the `CONFIG` object in
 RAMP_MS: 10 * 1000, // slow → fast (tuning; was 60s)
 START_RPS: 0.03,    // start speed (revs/sec)
 END_RPS: 8,         // end speed before implode
-IMPLODE_MS: 1200,   // collapse duration
+IMPLODE_MS: 2200,   // break-apart + suck-in
+DOT_PX: 100,        // final center dot
 ```
 
 ## GitHub Pages
 
 **https://krdiamond.github.io/Spining-Rumination/**
 
-Starts very slow, speeds up over 10 seconds (tuning), then letters rush inward into a 10px black center dot.
+Starts very slow, speeds up over 10 seconds (tuning), then letters fall apart individually and implode into a 100px black center dot.
 
 Same page also at:
 

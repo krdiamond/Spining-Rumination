@@ -49,20 +49,21 @@
         will-change: transform, opacity;
       }
 
-      /* Final 10px black singularity at the circle center */
+      /* Final black singularity at the circle center */
       .singularity {
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 10px;
-        height: 10px;
-        margin: -5px 0 0 -5px;
+        width: 100px;
+        height: 100px;
+        margin: -50px 0 0 -50px;
         border-radius: 50%;
         background: #111111;
         opacity: 0;
         transform: scale(0);
         pointer-events: none;
         will-change: transform, opacity;
+        z-index: 2;
       }
     </style>
   </head>
@@ -83,7 +84,7 @@
          * CONFIG — easy knobs
          * RAMP_MS: slow → max speed (10s while tuning; set back to 60*1000 later)
          * START_RPS / END_RPS: revolutions per second at start / end of ramp
-         * IMPLODE_MS: total collapse window (letters stagger inside this)
+         * IMPLODE_MS: break-apart + suck-in window
          * WORD_GAP_SLOTS: space between words on the circle
          * DOT_PX: final black dot diameter
          */
@@ -93,8 +94,8 @@
           RAMP_MS: 10 * 1000,
           START_RPS: 0.03,
           END_RPS: 8,
-          IMPLODE_MS: 1600,
-          DOT_PX: 10,
+          IMPLODE_MS: 2200,
+          DOT_PX: 100,
         };
 
         var wheel = document.getElementById("mantra-wheel");
@@ -123,6 +124,11 @@
           span.className = "mantra-char";
           span.textContent = ch;
           span.dataset.angle = String(deg);
+          // Deterministic “personality” for break-apart (no Math.random → no jumps on rerun)
+          var seed = (deg * 13 + ch.charCodeAt(0) * 7) % 1000;
+          span.dataset.burst = String(1.12 + (seed % 40) / 100); // outward peak 1.12–1.51
+          span.dataset.spinDir = String(seed % 2 === 0 ? 1 : -1);
+          span.dataset.spinAmt = String(80 + (seed % 160));
           span.style.transform =
             "translate(-50%, -50%) rotate(" +
             deg +
@@ -144,11 +150,48 @@
           return t * t * t;
         }
 
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
         function easeInQuint(t) {
           return t * t * t * t * t;
         }
 
-        function setCharPose(el, deg, radiusFactor, scale, opacity, swirl) {
+        function clamp01(t) {
+          if (t < 0) return 0;
+          if (t > 1) return 1;
+          return t;
+        }
+
+        /**
+         * Per-letter life during implode (0→1 local):
+         * 0–0.35  fall apart: peel off the ring, burst slightly outward, tumble
+         * 0.35–1  implode: rush to center and vanish into the singularity
+         */
+        function poseLetter(el, local) {
+          var deg = parseFloat(el.dataset.angle);
+          var burst = parseFloat(el.dataset.burst);
+          var spinDir = parseFloat(el.dataset.spinDir);
+          var spinAmt = parseFloat(el.dataset.spinAmt);
+          var radiusFactor;
+          var scale;
+          var swirl;
+          var opacity = 1;
+
+          if (local < 0.35) {
+            var a = easeOutCubic(local / 0.35);
+            radiusFactor = 1 + (burst - 1) * a;
+            scale = 1 + 0.15 * a;
+            swirl = spinDir * spinAmt * 0.35 * a;
+          } else {
+            var b = easeInQuint((local - 0.35) / 0.65);
+            radiusFactor = burst * (1 - b);
+            scale = Math.max(0.04, 1.15 * (1 - b * 0.96));
+            swirl = spinDir * spinAmt * (0.35 + 0.65 * b);
+            if (b > 0.85) opacity = 1 - (b - 0.85) / 0.15;
+          }
+
           el.style.opacity = String(opacity);
           el.style.transform =
             "translate(-50%, -50%) rotate(" +
@@ -164,53 +207,41 @@
         var lastTs = null;
         var startTs = null;
         var phase = "ramp";
+        var currentRps = CONFIG.START_RPS;
 
         function implode(now) {
           phase = "implode";
           var implodeStart = now;
-          var startRotation = rotation;
           var n = charEls.length;
 
-          // Stagger: letters suck in around the circle in a whirl, not all at once
+          // Stagger so letters fall apart / suck in individually around the circle
           var delays = [];
           for (var i = 0; i < n; i++) {
-            var base = (i / n) * 0.45;
-            var jitter = ((i * 17) % 7) / 7 * 0.12;
-            delays.push(Math.min(0.55, base + jitter));
+            delays.push((i / n) * 0.5 + (((i * 19) % 5) / 5) * 0.08);
           }
 
           function implodeFrame(ts) {
-            var u = Math.min(1, (ts - implodeStart) / CONFIG.IMPLODE_MS);
+            if (lastTs === null) lastTs = ts;
+            var dt = Math.min(0.05, (ts - lastTs) / 1000);
+            lastTs = ts;
 
-            // Wheel keeps a dying whirl; decelerates as matter falls in
-            var whirl = (1 - easeInCubic(u)) * 540;
-            rotation = startRotation + whirl;
+            // Seamless: keep spinning the SAME direction at peak speed (no reverse)
+            currentRps = CONFIG.END_RPS;
+            rotation += currentRps * 360 * dt;
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
-            var arrived = 0;
+            var u = clamp01((ts - implodeStart) / CONFIG.IMPLODE_MS);
+
             for (var i = 0; i < n; i++) {
-              var el = charEls[i];
-              var deg = parseFloat(el.dataset.angle);
-              var local = (u - delays[i]) / (1 - delays[i]);
-              if (local < 0) local = 0;
-              if (local > 1) local = 1;
-
-              var e = easeInQuint(local);
-              // Rush inward; slight extra swirl as they fall
-              var radiusFactor = 1 - e;
-              var scale = 1 - e * 0.92;
-              var swirl = e * (120 + (i % 5) * 24);
-              var opacity = local < 0.92 ? 1 : 1 - (local - 0.92) / 0.08;
-
-              setCharPose(el, deg, radiusFactor, Math.max(0.05, scale), opacity, swirl);
-              if (local >= 1) arrived++;
+              var local = clamp01((u - delays[i]) / (1 - delays[i] * 0.85));
+              poseLetter(charEls[i], local);
             }
 
-            // Dot grows as letters pile into the center
-            var gather = Math.max(0, (u - 0.35) / 0.65);
+            // Dot grows as letters arrive — does not affect wheel direction
+            var gather = clamp01((u - 0.4) / 0.6);
             var ge = easeInCubic(gather);
-            singularity.style.opacity = String(Math.min(1, ge * 1.2));
-            singularity.style.transform = "scale(" + (0.15 + ge * 0.85) + ")";
+            singularity.style.opacity = String(Math.min(1, ge * 1.15));
+            singularity.style.transform = "scale(" + (0.08 + ge * 0.92) + ")";
 
             if (u < 1) {
               requestAnimationFrame(implodeFrame);
@@ -221,6 +252,7 @@
               }
               singularity.style.opacity = "1";
               singularity.style.transform = "scale(1)";
+              // Hold final spin pose; no direction change
               wheel.style.transform = "rotate(" + rotation + "deg)";
             }
           }
@@ -235,11 +267,12 @@
           lastTs = ts;
 
           if (phase === "ramp") {
-            var t = Math.min(1, (ts - startTs) / CONFIG.RAMP_MS);
-            var rps =
+            var t = clamp01((ts - startTs) / CONFIG.RAMP_MS);
+            currentRps =
               CONFIG.START_RPS +
               (CONFIG.END_RPS - CONFIG.START_RPS) * easeInCubic(t);
-            rotation += rps * 360 * dt;
+            // Always integrate forward — never assign an absolute decreasing angle
+            rotation += currentRps * 360 * dt;
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
             if (t >= 1) {
