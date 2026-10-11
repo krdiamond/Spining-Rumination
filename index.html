@@ -13,14 +13,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /*
-       * TIMING / SPEED (also mirrored in the script CONFIG below)
-       * Ramp: slow → very fast over RAMP_MS, then implode.
+       * TIMING — edit CONFIG in the script below for ramp / implode knobs.
        */
       :root {
         --radius: min(36vmin, 240px);
-        --collapse: 1; /* 1 = full circle, 0 = single point at center */
-        --char-scale: 1;
-        --char-opacity: 1;
       }
 
       html,
@@ -50,14 +46,23 @@
         transform-origin: center;
         user-select: none;
         white-space: pre;
-        opacity: var(--char-opacity);
         will-change: transform, opacity;
       }
 
-      .mantra-wheel.is-imploding .mantra-char {
-        transition:
-          opacity 0.35s ease-in,
-          transform 0.01s linear;
+      /* Final 10px black singularity at the circle center */
+      .singularity {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        margin: -5px 0 0 -5px;
+        border-radius: 50%;
+        background: #111111;
+        opacity: 0;
+        transform: scale(0);
+        pointer-events: none;
+        will-change: transform, opacity;
       }
     </style>
   </head>
@@ -68,27 +73,37 @@
         id="mantra-wheel"
         role="img"
         aria-label="End Rumination Through Decisive Acceptance"
-      ></div>
+      >
+        <div class="singularity" id="singularity" aria-hidden="true"></div>
+      </div>
     </main>
     <script>
       (function () {
         /*
          * CONFIG — easy knobs
-         * RAMP_MS: time from slow → max speed before implode (default 60s)
+         * RAMP_MS: slow → max speed (10s while tuning; set back to 60*1000 later)
          * START_RPS / END_RPS: revolutions per second at start / end of ramp
-         * IMPLODE_MS: how long the collapse to the center takes
+         * IMPLODE_MS: total collapse window (letters stagger inside this)
          * WORD_GAP_SLOTS: space between words on the circle
+         * DOT_PX: final black dot diameter
          */
         var CONFIG = {
           MESSAGE: "End Rumination Through Decisive Acceptance",
           WORD_GAP_SLOTS: 2.5,
-          RAMP_MS: 60 * 1000,
-          START_RPS: 0.03, // ~1 rev / 33s — very slow
-          END_RPS: 8, // very very fast
-          IMPLODE_MS: 1200,
+          RAMP_MS: 10 * 1000,
+          START_RPS: 0.03,
+          END_RPS: 8,
+          IMPLODE_MS: 1600,
+          DOT_PX: 10,
         };
 
         var wheel = document.getElementById("mantra-wheel");
+        var singularity = document.getElementById("singularity");
+        singularity.style.width = CONFIG.DOT_PX + "px";
+        singularity.style.height = CONFIG.DOT_PX + "px";
+        singularity.style.margin =
+          "-" + CONFIG.DOT_PX / 2 + "px 0 0 -" + CONFIG.DOT_PX / 2 + "px";
+
         var reduceMotion = window.matchMedia(
           "(prefers-reduced-motion: reduce)"
         ).matches;
@@ -111,7 +126,7 @@
           span.style.transform =
             "translate(-50%, -50%) rotate(" +
             deg +
-            "deg) translateY(calc(-1 * var(--radius) * var(--collapse))) scale(var(--char-scale))";
+            "deg) translateY(calc(-1 * var(--radius))) scale(1)";
           wheel.appendChild(span);
           charEls.push(span);
         }
@@ -129,59 +144,83 @@
           return t * t * t;
         }
 
-        function setCollapse(collapse, scale, opacity) {
-          document.documentElement.style.setProperty(
-            "--collapse",
-            String(collapse)
-          );
-          document.documentElement.style.setProperty(
-            "--char-scale",
-            String(scale)
-          );
-          document.documentElement.style.setProperty(
-            "--char-opacity",
-            String(opacity)
-          );
-          // Refresh transforms so --collapse/--char-scale apply
-          for (var i = 0; i < charEls.length; i++) {
-            var el = charEls[i];
-            var deg = el.dataset.angle;
-            el.style.transform =
-              "translate(-50%, -50%) rotate(" +
-              deg +
-              "deg) translateY(calc(-1 * var(--radius) * var(--collapse))) scale(var(--char-scale))";
-          }
+        function easeInQuint(t) {
+          return t * t * t * t * t;
         }
 
-        var rotation = 0; // degrees
+        function setCharPose(el, deg, radiusFactor, scale, opacity, swirl) {
+          el.style.opacity = String(opacity);
+          el.style.transform =
+            "translate(-50%, -50%) rotate(" +
+            (deg + swirl) +
+            "deg) translateY(calc(-1 * var(--radius) * " +
+            radiusFactor +
+            ")) scale(" +
+            scale +
+            ")";
+        }
+
+        var rotation = 0;
         var lastTs = null;
         var startTs = null;
-        var phase = "ramp"; // ramp | implode | done
+        var phase = "ramp";
 
         function implode(now) {
           phase = "implode";
-          wheel.classList.add("is-imploding");
           var implodeStart = now;
           var startRotation = rotation;
+          var n = charEls.length;
+
+          // Stagger: letters suck in around the circle in a whirl, not all at once
+          var delays = [];
+          for (var i = 0; i < n; i++) {
+            var base = (i / n) * 0.45;
+            var jitter = ((i * 17) % 7) / 7 * 0.12;
+            delays.push(Math.min(0.55, base + jitter));
+          }
 
           function implodeFrame(ts) {
             var u = Math.min(1, (ts - implodeStart) / CONFIG.IMPLODE_MS);
-            // Ease-in: linger, then snap hard to the center
-            var e = u * u * u;
-            var collapse = 1 - e;
-            var scale = 1 - e * 0.85;
-            var opacity = u < 0.85 ? 1 : 1 - (u - 0.85) / 0.15;
 
-            // Keep whipping around while collapsing
-            rotation = startRotation + e * 720;
+            // Wheel keeps a dying whirl; decelerates as matter falls in
+            var whirl = (1 - easeInCubic(u)) * 540;
+            rotation = startRotation + whirl;
             wheel.style.transform = "rotate(" + rotation + "deg)";
-            setCollapse(collapse, scale, opacity);
+
+            var arrived = 0;
+            for (var i = 0; i < n; i++) {
+              var el = charEls[i];
+              var deg = parseFloat(el.dataset.angle);
+              var local = (u - delays[i]) / (1 - delays[i]);
+              if (local < 0) local = 0;
+              if (local > 1) local = 1;
+
+              var e = easeInQuint(local);
+              // Rush inward; slight extra swirl as they fall
+              var radiusFactor = 1 - e;
+              var scale = 1 - e * 0.92;
+              var swirl = e * (120 + (i % 5) * 24);
+              var opacity = local < 0.92 ? 1 : 1 - (local - 0.92) / 0.08;
+
+              setCharPose(el, deg, radiusFactor, Math.max(0.05, scale), opacity, swirl);
+              if (local >= 1) arrived++;
+            }
+
+            // Dot grows as letters pile into the center
+            var gather = Math.max(0, (u - 0.35) / 0.65);
+            var ge = easeInCubic(gather);
+            singularity.style.opacity = String(Math.min(1, ge * 1.2));
+            singularity.style.transform = "scale(" + (0.15 + ge * 0.85) + ")";
 
             if (u < 1) {
               requestAnimationFrame(implodeFrame);
             } else {
               phase = "done";
-              setCollapse(0, 0, 0);
+              for (var j = 0; j < n; j++) {
+                charEls[j].style.opacity = "0";
+              }
+              singularity.style.opacity = "1";
+              singularity.style.transform = "scale(1)";
               wheel.style.transform = "rotate(" + rotation + "deg)";
             }
           }
@@ -212,7 +251,6 @@
         }
 
         if (reduceMotion) {
-          // Still show the sigil; skip the long acceleration / implode.
           return;
         }
 

@@ -18,23 +18,22 @@ python3 -m http.server 43127
 
 Then visit http://127.0.0.1:43127
 
-## Adjust spin speed
+## Timing knobs
 
-Near the top of `index.html`, inside the `<style>` block:
+In `index.html` (and `dev/ascii-ritual/index.html`), edit the `CONFIG` object in the script:
 
-```css
-:root {
-  --spin-duration: 28s; /* smaller = faster, larger = slower */
-}
+```js
+RAMP_MS: 10 * 1000, // slow → fast (tuning; was 60s)
+START_RPS: 0.03,    // start speed (revs/sec)
+END_RPS: 8,         // end speed before implode
+IMPLODE_MS: 1200,   // collapse duration
 ```
-
-Examples: `10s` (fast), `28s` (default), `60s` (slow).
 
 ## GitHub Pages
 
 **https://krdiamond.github.io/Spining-Rumination/**
 
-Starts very slow, speeds up over 60 seconds, then implodes to a center point.
+Starts very slow, speeds up over 10 seconds (tuning), then letters rush inward into a 10px black center dot.
 
 Same page also at:
 
