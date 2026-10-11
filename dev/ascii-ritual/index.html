@@ -126,7 +126,8 @@
           span.dataset.angle = String(deg);
           // Deterministic “personality” for break-apart (no Math.random → no jumps on rerun)
           var seed = (deg * 13 + ch.charCodeAt(0) * 7) % 1000;
-          span.dataset.burst = String(1.12 + (seed % 40) / 100); // outward peak 1.12–1.51
+          // Inward peel target (inside the circle), not outside: 0.42–0.78 of ring radius
+          span.dataset.burst = String(0.42 + (seed % 37) / 100);
           span.dataset.spinDir = String(seed % 2 === 0 ? 1 : -1);
           span.dataset.spinAmt = String(80 + (seed % 160));
           span.style.transform =
@@ -166,12 +167,12 @@
 
         /**
          * Per-letter life during implode (0→1 local):
-         * 0–0.35  fall apart: peel off the ring, burst slightly outward, tumble
-         * 0.35–1  implode: rush to center and vanish into the singularity
+         * 0–0.4  fall apart INSIDE the circle: peel off the ring inward, tumble
+         * 0.4–1  implode: rush the rest of the way to center into the singularity
          */
         function poseLetter(el, local) {
           var deg = parseFloat(el.dataset.angle);
-          var burst = parseFloat(el.dataset.burst);
+          var inward = parseFloat(el.dataset.burst); // < 1 → inside the ring
           var spinDir = parseFloat(el.dataset.spinDir);
           var spinAmt = parseFloat(el.dataset.spinAmt);
           var radiusFactor;
@@ -179,16 +180,17 @@
           var swirl;
           var opacity = 1;
 
-          if (local < 0.35) {
-            var a = easeOutCubic(local / 0.35);
-            radiusFactor = 1 + (burst - 1) * a;
-            scale = 1 + 0.15 * a;
-            swirl = spinDir * spinAmt * 0.35 * a;
+          if (local < 0.4) {
+            var a = easeOutCubic(local / 0.4);
+            // Drop from the rim (1) toward an inner orbit (inward), never outside
+            radiusFactor = 1 + (inward - 1) * a;
+            scale = 1 + 0.08 * a;
+            swirl = spinDir * spinAmt * 0.45 * a;
           } else {
-            var b = easeInQuint((local - 0.35) / 0.65);
-            radiusFactor = burst * (1 - b);
-            scale = Math.max(0.04, 1.15 * (1 - b * 0.96));
-            swirl = spinDir * spinAmt * (0.35 + 0.65 * b);
+            var b = easeInQuint((local - 0.4) / 0.6);
+            radiusFactor = inward * (1 - b);
+            scale = Math.max(0.04, 1.08 * (1 - b * 0.96));
+            swirl = spinDir * spinAmt * (0.45 + 0.55 * b);
             if (b > 0.85) opacity = 1 - (b - 0.85) / 0.15;
           }
 
