@@ -45,9 +45,9 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 50px;
-        height: 50px;
-        margin: -25px 0 0 -25px;
+        width: 75px;
+        height: 75px;
+        margin: -37.5px 0 0 -37.5px;
         border-radius: 50%;
         background: #111111;
         opacity: 0;
@@ -87,7 +87,7 @@
           PARTICLE_STAGGER_JITTER_MS: 45, // random extra delay per letter
           PARTICLE_FLIGHT_MS: 520, // time for one letter to reach the center
           PARTICLE_FLIGHT_JITTER_MS: 180, // random extra flight time
-          DOT_PX: 50,
+          DOT_PX: 75,
           FONT_URL: "font5x7.bin",
           FONT_W: 5,
           FONT_H: 7,
@@ -234,9 +234,10 @@
         function startParticlizer(now) {
           phase = "particles";
           arrivedCount = 0;
-          // Black circle starts tiny and grows as letters land
+          // Black circle starts tiny; smoothFill eases toward fill (no jumps)
+          var smoothFill = 0;
           singularity.style.opacity = "1";
-          singularity.style.transform = "scale(0.08)";
+          singularity.style.transform = "scale(0.04)";
           var n = charEls.length;
           var order = shuffle(
             charEls.map(function (_, i) {
@@ -266,7 +267,12 @@
           }
 
           // Total duration ≈ last release + its flight
-          var endAt = now + releaseAt + CONFIG.PARTICLE_FLIGHT_MS + CONFIG.PARTICLE_FLIGHT_JITTER_MS + 200;
+          var endAt =
+            now +
+            releaseAt +
+            CONFIG.PARTICLE_FLIGHT_MS +
+            CONFIG.PARTICLE_FLIGHT_JITTER_MS +
+            200;
 
           function particleFrame(ts) {
             if (lastTs === null) lastTs = ts;
@@ -279,6 +285,7 @@
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
             arrivedCount = 0;
+            var fill = 0; // continuous 0→1 as letters fly in (not stepped arrivals)
             for (var i = 0; i < n; i++) {
               var el = charEls[i];
               var p = el._particle;
@@ -302,18 +309,27 @@
                   el.style.opacity = "0";
                 }
                 arrivedCount++;
+                fill += 1;
               } else {
                 poseParticle(el, t);
+                // Grow while the letter is in flight, not only when it lands
+                fill += t;
               }
             }
 
-            // Black circle grows slowly as it fills with letters (linear with arrivals)
-            var gather = arrivedCount / n;
+            var targetFill = fill / n;
+            // Exponential smooth toward target — gradual, no per-letter jumps
+            // Slightly faster follow once every letter has landed
+            var rate = arrivedCount >= n ? 5.5 : 2.4;
+            var follow = 1 - Math.exp(-dt * rate);
+            smoothFill += (targetFill - smoothFill) * follow;
+            if (smoothFill > 0.999) smoothFill = 1;
+
             singularity.style.opacity = "1";
             singularity.style.transform =
-              "scale(" + (0.08 + gather * 0.92) + ")";
+              "scale(" + (0.04 + smoothFill * 0.96) + ")";
 
-            if (arrivedCount < n || ts < endAt) {
+            if (arrivedCount < n || ts < endAt || smoothFill < 0.999) {
               requestAnimationFrame(particleFrame);
             } else {
               phase = "done";
