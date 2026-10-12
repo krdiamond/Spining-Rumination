@@ -87,6 +87,8 @@
           PARTICLE_STAGGER_JITTER_MS: 45, // random extra delay per letter
           PARTICLE_FLIGHT_MS: 520, // time for one letter to reach the center
           PARTICLE_FLIGHT_JITTER_MS: 180, // random extra flight time
+          // Max fill units/sec toward full size (~3s to grow when letters keep arriving)
+          GROW_PER_SEC: 0.32,
           DOT_PX: 75,
           FONT_URL: "font5x7.bin",
           FONT_W: 5,
@@ -318,11 +320,14 @@
             }
 
             var targetFill = fill / n;
-            // Exponential smooth toward target — gradual, no per-letter jumps
-            // Slightly faster follow once every letter has landed
-            var rate = arrivedCount >= n ? 5.5 : 2.4;
+            // Ease toward fill, but hard-cap speed so growth is gradual (no jumps)
+            var rate = arrivedCount >= n ? 1.8 : 1.2;
             var follow = 1 - Math.exp(-dt * rate);
-            smoothFill += (targetFill - smoothFill) * follow;
+            var step = (targetFill - smoothFill) * follow;
+            var maxStep = CONFIG.GROW_PER_SEC * dt;
+            if (step > maxStep) step = maxStep;
+            if (step < 0) step = 0;
+            smoothFill += step;
             if (smoothFill > 0.999) smoothFill = 1;
 
             singularity.style.opacity = "1";
