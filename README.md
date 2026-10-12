@@ -28,14 +28,14 @@ START_RPS: 0.03,              // start speed (revs/sec)
 END_RPS: 8,                   // max speed before particlizer
 PARTICLE_STAGGER_MS: 55,      // delay between each letter drop
 PARTICLE_FLIGHT_MS: 520,      // one letter’s fall into center
-DOT_PX: 100,                  // final center dot
+DOT_PX: 25,                  // final center dot
 ```
 
 ## GitHub Pages
 
 **https://krdiamond.github.io/Spining-Rumination/**
 
-Starts very slow, speeds up over 10 seconds (tuning), then letters fall apart individually and implode into a 100px black center dot.
+Starts very slow, speeds up over 10 seconds (tuning), then letters fall apart individually and implode into a 25px black center dot.
 
 Same page also at:
 
