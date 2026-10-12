@@ -4,16 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ascii Ritual — Implode</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-      rel="stylesheet"
-    />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /*
        * TIMING — edit CONFIG in the script below for ramp / implode knobs.
+       * Font: Thumby default font5x7.bin (5×7 VLSB bitmap).
        */
       :root {
         --radius: min(36vmin, 240px);
@@ -39,17 +34,13 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        font-family: "Press Start 2P", monospace;
-        font-size: clamp(0.65rem, 2vmin, 1rem);
-        color: #111111;
-        line-height: 1;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
         transform-origin: center;
         user-select: none;
-        white-space: pre;
         will-change: transform, opacity;
       }
 
-      /* Final black singularity at the circle center */
       .singularity {
         position: absolute;
         left: 50%;
@@ -82,11 +73,8 @@
       (function () {
         /*
          * CONFIG — easy knobs
-         * RAMP_MS: slow → max speed (10s while tuning; set back to 60*1000 later)
-         * START_RPS / END_RPS: revolutions per second at start / end of ramp
-         * IMPLODE_MS: break-apart + suck-in window
-         * WORD_GAP_SLOTS: space between words on the circle
-         * DOT_PX: final black dot diameter
+         * FONT_URL: Thumby default 5×7 bitmap (the built-in display font)
+         * PIXEL_SCALE: how many CSS pixels per Thumby font pixel
          */
         var CONFIG = {
           MESSAGE: "End Rumination Through Decisive Acceptance",
@@ -96,6 +84,11 @@
           END_RPS: 8,
           IMPLODE_MS: 2200,
           DOT_PX: 100,
+          FONT_URL: "font5x7.bin",
+          FONT_W: 5,
+          FONT_H: 7,
+          PIXEL_SCALE: 3,
+          INK: "#111111",
         };
 
         var wheel = document.getElementById("mantra-wheel");
@@ -109,42 +102,66 @@
           "(prefers-reduced-motion: reduce)"
         ).matches;
 
-        var words = CONFIG.MESSAGE.trim().split(/\s+/);
-        var totalLetters = 0;
-        for (var w = 0; w < words.length; w++) totalLetters += words[w].length;
-
-        var gapCount = words.length;
-        var totalSlots = totalLetters + gapCount * CONFIG.WORD_GAP_SLOTS;
-        var slotAngle = 360 / totalSlots;
-        var angle = 0;
         var charEls = [];
+        var fontData = null;
+
+        function glyphCanvas(ch) {
+          var idx = ch.charCodeAt(0) - 0x20;
+          if (idx < 0 || idx >= fontData.length / CONFIG.FONT_W) {
+            idx = "?".charCodeAt(0) - 0x20;
+          }
+          var scale = CONFIG.PIXEL_SCALE;
+          var canvas = document.createElement("canvas");
+          canvas.width = CONFIG.FONT_W * scale;
+          canvas.height = CONFIG.FONT_H * scale;
+          canvas.className = "mantra-char";
+          canvas.setAttribute("aria-hidden", "true");
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = CONFIG.INK;
+          var offset = idx * CONFIG.FONT_W;
+          for (var col = 0; col < CONFIG.FONT_W; col++) {
+            var byte = fontData[offset + col];
+            for (var row = 0; row < CONFIG.FONT_H; row++) {
+              if (byte & (1 << row)) {
+                ctx.fillRect(col * scale, row * scale, scale, scale);
+              }
+            }
+          }
+          return canvas;
+        }
 
         function placeChar(ch, deg) {
-          var span = document.createElement("span");
-          span.className = "mantra-char";
-          span.textContent = ch;
-          span.dataset.angle = String(deg);
-          // Deterministic “personality” for break-apart (no Math.random → no jumps on rerun)
+          var el = glyphCanvas(ch);
+          el.dataset.angle = String(deg);
           var seed = (deg * 13 + ch.charCodeAt(0) * 7) % 1000;
-          // Inward peel target (inside the circle), not outside: 0.42–0.78 of ring radius
-          span.dataset.burst = String(0.42 + (seed % 37) / 100);
-          span.dataset.spinDir = String(seed % 2 === 0 ? 1 : -1);
-          span.dataset.spinAmt = String(80 + (seed % 160));
-          span.style.transform =
+          el.dataset.burst = String(0.42 + (seed % 37) / 100);
+          el.dataset.spinDir = String(seed % 2 === 0 ? 1 : -1);
+          el.dataset.spinAmt = String(80 + (seed % 160));
+          el.style.transform =
             "translate(-50%, -50%) rotate(" +
             deg +
             "deg) translateY(calc(-1 * var(--radius))) scale(1)";
-          wheel.appendChild(span);
-          charEls.push(span);
+          wheel.appendChild(el);
+          charEls.push(el);
         }
 
-        for (var i = 0; i < words.length; i++) {
-          var word = words[i];
-          for (var c = 0; c < word.length; c++) {
-            placeChar(word.charAt(c), angle);
-            angle += slotAngle;
+        function buildRing() {
+          var words = CONFIG.MESSAGE.trim().split(/\s+/);
+          var totalLetters = 0;
+          for (var w = 0; w < words.length; w++) totalLetters += words[w].length;
+          var gapCount = words.length;
+          var totalSlots = totalLetters + gapCount * CONFIG.WORD_GAP_SLOTS;
+          var slotAngle = 360 / totalSlots;
+          var angle = 0;
+
+          for (var i = 0; i < words.length; i++) {
+            var word = words[i];
+            for (var c = 0; c < word.length; c++) {
+              placeChar(word.charAt(c), angle);
+              angle += slotAngle;
+            }
+            angle += slotAngle * CONFIG.WORD_GAP_SLOTS;
           }
-          angle += slotAngle * CONFIG.WORD_GAP_SLOTS;
         }
 
         function easeInCubic(t) {
@@ -165,14 +182,9 @@
           return t;
         }
 
-        /**
-         * Per-letter life during implode (0→1 local):
-         * 0–0.4  fall apart INSIDE the circle: peel off the ring inward, tumble
-         * 0.4–1  implode: rush the rest of the way to center into the singularity
-         */
         function poseLetter(el, local) {
           var deg = parseFloat(el.dataset.angle);
-          var inward = parseFloat(el.dataset.burst); // < 1 → inside the ring
+          var inward = parseFloat(el.dataset.burst);
           var spinDir = parseFloat(el.dataset.spinDir);
           var spinAmt = parseFloat(el.dataset.spinAmt);
           var radiusFactor;
@@ -182,7 +194,6 @@
 
           if (local < 0.4) {
             var a = easeOutCubic(local / 0.4);
-            // Drop from the rim (1) toward an inner orbit (inward), never outside
             radiusFactor = 1 + (inward - 1) * a;
             scale = 1 + 0.08 * a;
             swirl = spinDir * spinAmt * 0.45 * a;
@@ -215,8 +226,6 @@
           phase = "implode";
           var implodeStart = now;
           var n = charEls.length;
-
-          // Stagger so letters fall apart / suck in individually around the circle
           var delays = [];
           for (var i = 0; i < n; i++) {
             delays.push((i / n) * 0.5 + (((i * 19) % 5) / 5) * 0.08);
@@ -227,19 +236,16 @@
             var dt = Math.min(0.05, (ts - lastTs) / 1000);
             lastTs = ts;
 
-            // Seamless: keep spinning the SAME direction at peak speed (no reverse)
             currentRps = CONFIG.END_RPS;
             rotation += currentRps * 360 * dt;
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
             var u = clamp01((ts - implodeStart) / CONFIG.IMPLODE_MS);
-
             for (var i = 0; i < n; i++) {
               var local = clamp01((u - delays[i]) / (1 - delays[i] * 0.85));
               poseLetter(charEls[i], local);
             }
 
-            // Dot grows as letters arrive — does not affect wheel direction
             var gather = clamp01((u - 0.4) / 0.6);
             var ge = easeInCubic(gather);
             singularity.style.opacity = String(Math.min(1, ge * 1.15));
@@ -249,12 +255,9 @@
               requestAnimationFrame(implodeFrame);
             } else {
               phase = "done";
-              for (var j = 0; j < n; j++) {
-                charEls[j].style.opacity = "0";
-              }
+              for (var j = 0; j < n; j++) charEls[j].style.opacity = "0";
               singularity.style.opacity = "1";
               singularity.style.transform = "scale(1)";
-              // Hold final spin pose; no direction change
               wheel.style.transform = "rotate(" + rotation + "deg)";
             }
           }
@@ -273,7 +276,6 @@
             currentRps =
               CONFIG.START_RPS +
               (CONFIG.END_RPS - CONFIG.START_RPS) * easeInCubic(t);
-            // Always integrate forward — never assign an absolute decreasing angle
             rotation += currentRps * 360 * dt;
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
@@ -285,11 +287,19 @@
           }
         }
 
-        if (reduceMotion) {
-          return;
-        }
-
-        requestAnimationFrame(tick);
+        fetch(CONFIG.FONT_URL)
+          .then(function (res) {
+            if (!res.ok) throw new Error("Failed to load " + CONFIG.FONT_URL);
+            return res.arrayBuffer();
+          })
+          .then(function (buf) {
+            fontData = new Uint8Array(buf);
+            buildRing();
+            if (!reduceMotion) requestAnimationFrame(tick);
+          })
+          .catch(function (err) {
+            console.error(err);
+          });
       })();
     </script>
   </body>

@@ -6,7 +6,7 @@ A minimal static site for the Fortune Teller Ring: the line **End Rumination Thr
 
 - Plain HTML (no bundler, no framework)
 - [Tailwind CSS Play CDN](https://tailwindcss.com/docs/installation/play-cdn)
-- [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) (Google Fonts)
+- Thumby default bitmap font (`font5x7.bin`, 5×7)
 
 ## Run locally
 
