@@ -8,6 +8,18 @@ Live: https://krdiamond.github.io/Spining-Rumination/
 
 - `index.html` — the page (edit `CONFIG` for timing)
 - `font5x7.bin` — Thumby 5×7 font (required; letters will not draw without it)
+- `silver.bin` — silver 🜛 sprite, **32×32** VLSB (Thumby)
+- `silver-40.bin` — same sprite, **40×40** VLSB (clearer on device)
+
+### Thumby sprite usage
+
+```python
+import thumby
+spr = thumby.Sprite(32, 32, "/Games/YourGame/silver.bin", 20, 4)
+# or: thumby.Sprite(40, 40, "/Games/YourGame/silver-40.bin", 16, 0)
+thumby.display.drawSprite(spr)
+thumby.display.update()
+```
 
 ## Run locally
 
