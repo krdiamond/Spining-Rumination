@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /*
-       * TIMING — edit CONFIG in the script below for ramp / implode knobs.
+       * TIMING — edit CONFIG in the script below.
        * Font: Thumby default font5x7.bin (5×7 VLSB bitmap).
        */
       :root {
@@ -73,8 +73,8 @@
       (function () {
         /*
          * CONFIG — easy knobs
-         * FONT_URL: Thumby default 5×7 bitmap (the built-in display font)
-         * PIXEL_SCALE: how many CSS pixels per Thumby font pixel
+         * After the speed ramp, letters particle-fall into the center
+         * one-by-one in random order (particlizer).
          */
         var CONFIG = {
           MESSAGE: "End Rumination Through Decisive Acceptance",
@@ -82,12 +82,16 @@
           RAMP_MS: 10 * 1000,
           START_RPS: 0.03,
           END_RPS: 8,
-          IMPLODE_MS: 2200,
+          // Particlizer
+          PARTICLE_STAGGER_MS: 55, // delay between releasing each letter
+          PARTICLE_STAGGER_JITTER_MS: 45, // random extra delay per letter
+          PARTICLE_FLIGHT_MS: 520, // time for one letter to reach the center
+          PARTICLE_FLIGHT_JITTER_MS: 180, // random extra flight time
           DOT_PX: 100,
           FONT_URL: "font5x7.bin",
           FONT_W: 5,
           FONT_H: 7,
-          PIXEL_SCALE: 2, // 1 = native Thumby 5×7 px; 2 = readable but still tiny
+          PIXEL_SCALE: 2,
           INK: "#111111",
         };
 
@@ -133,14 +137,12 @@
         function placeChar(ch, deg) {
           var el = glyphCanvas(ch);
           el.dataset.angle = String(deg);
-          var seed = (deg * 13 + ch.charCodeAt(0) * 7) % 1000;
-          el.dataset.burst = String(0.42 + (seed % 37) / 100);
-          el.dataset.spinDir = String(seed % 2 === 0 ? 1 : -1);
-          el.dataset.spinAmt = String(80 + (seed % 160));
           el.style.transform =
             "translate(-50%, -50%) rotate(" +
             deg +
             "deg) translateY(calc(-1 * var(--radius))) scale(1)";
+          // Particle personality (filled when particlizer starts)
+          el._particle = null;
           wheel.appendChild(el);
           charEls.push(el);
         }
@@ -168,12 +170,8 @@
           return t * t * t;
         }
 
-        function easeOutCubic(t) {
-          return 1 - Math.pow(1 - t, 3);
-        }
-
-        function easeInQuint(t) {
-          return t * t * t * t * t;
+        function easeInQuad(t) {
+          return t * t;
         }
 
         function clamp01(t) {
@@ -182,33 +180,47 @@
           return t;
         }
 
-        function poseLetter(el, local) {
-          var deg = parseFloat(el.dataset.angle);
-          var inward = parseFloat(el.dataset.burst);
-          var spinDir = parseFloat(el.dataset.spinDir);
-          var spinAmt = parseFloat(el.dataset.spinAmt);
-          var radiusFactor;
-          var scale;
-          var swirl;
-          var opacity = 1;
-
-          if (local < 0.4) {
-            var a = easeOutCubic(local / 0.4);
-            radiusFactor = 1 + (inward - 1) * a;
-            scale = 1 + 0.08 * a;
-            swirl = spinDir * spinAmt * 0.45 * a;
-          } else {
-            var b = easeInQuint((local - 0.4) / 0.6);
-            radiusFactor = inward * (1 - b);
-            scale = Math.max(0.04, 1.08 * (1 - b * 0.96));
-            swirl = spinDir * spinAmt * (0.45 + 0.55 * b);
-            if (b > 0.85) opacity = 1 - (b - 0.85) / 0.15;
+        function shuffle(arr) {
+          for (var i = arr.length - 1; i > 0; i--) {
+            var j = (Math.random() * (i + 1)) | 0;
+            var tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
           }
+          return arr;
+        }
+
+        function poseOnRing(el) {
+          var deg = parseFloat(el.dataset.angle);
+          el.style.opacity = "1";
+          el.style.transform =
+            "translate(-50%, -50%) rotate(" +
+            deg +
+            "deg) translateY(calc(-1 * var(--radius))) scale(1)";
+        }
+
+        /** Particle flight 0→1: leave rim, tumble inward, vanish into center */
+        function poseParticle(el, t) {
+          var p = el._particle;
+          var e = easeInQuad(t);
+          // Mostly radial collapse, with a random sideways wobble that dies out
+          var wobble = Math.sin(t * Math.PI) * p.wobbleDeg;
+          var deg = p.startAngle + wobble + p.spin * e;
+          var radiusFactor = 1 - e;
+          // Slight outward kick at the very start so it “breaks off” as a particle
+          if (t < 0.12) {
+            radiusFactor = 1 + 0.08 * (1 - t / 0.12);
+          } else {
+            var u = (t - 0.12) / 0.88;
+            radiusFactor = (1 + 0.08) * (1 - easeInCubic(u));
+          }
+          var scale = Math.max(0.05, 1 - e * 0.95);
+          var opacity = t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15;
 
           el.style.opacity = String(opacity);
           el.style.transform =
             "translate(-50%, -50%) rotate(" +
-            (deg + swirl) +
+            deg +
             "deg) translateY(calc(-1 * var(--radius) * " +
             radiusFactor +
             ")) scale(" +
@@ -221,38 +233,88 @@
         var startTs = null;
         var phase = "ramp";
         var currentRps = CONFIG.START_RPS;
+        var arrivedCount = 0;
 
-        function implode(now) {
-          phase = "implode";
-          var implodeStart = now;
+        function startParticlizer(now) {
+          phase = "particles";
+          arrivedCount = 0;
           var n = charEls.length;
-          var delays = [];
-          for (var i = 0; i < n; i++) {
-            delays.push((i / n) * 0.5 + (((i * 19) % 5) / 5) * 0.08);
+          var order = shuffle(
+            charEls.map(function (_, i) {
+              return i;
+            })
+          );
+
+          var releaseAt = 0;
+          for (var k = 0; k < n; k++) {
+            var el = charEls[order[k]];
+            var stagger =
+              CONFIG.PARTICLE_STAGGER_MS +
+              Math.random() * CONFIG.PARTICLE_STAGGER_JITTER_MS;
+            releaseAt += stagger;
+            var flight =
+              CONFIG.PARTICLE_FLIGHT_MS +
+              Math.random() * CONFIG.PARTICLE_FLIGHT_JITTER_MS;
+            el._particle = {
+              releaseAt: now + releaseAt,
+              flightMs: flight,
+              startAngle: parseFloat(el.dataset.angle),
+              wobbleDeg: (Math.random() * 2 - 1) * 55,
+              spin: (Math.random() * 2 - 1) * 420,
+              done: false,
+              started: false,
+            };
           }
 
-          function implodeFrame(ts) {
+          // Total duration ≈ last release + its flight
+          var endAt = now + releaseAt + CONFIG.PARTICLE_FLIGHT_MS + CONFIG.PARTICLE_FLIGHT_JITTER_MS + 200;
+
+          function particleFrame(ts) {
             if (lastTs === null) lastTs = ts;
             var dt = Math.min(0.05, (ts - lastTs) / 1000);
             lastTs = ts;
 
+            // Keep spinning continuously at max speed
             currentRps = CONFIG.END_RPS;
             rotation += currentRps * 360 * dt;
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
-            var u = clamp01((ts - implodeStart) / CONFIG.IMPLODE_MS);
+            arrivedCount = 0;
             for (var i = 0; i < n; i++) {
-              var local = clamp01((u - delays[i]) / (1 - delays[i] * 0.85));
-              poseLetter(charEls[i], local);
+              var el = charEls[i];
+              var p = el._particle;
+              if (!p) continue;
+
+              if (ts < p.releaseAt) {
+                poseOnRing(el);
+                continue;
+              }
+
+              if (!p.started) {
+                p.started = true;
+                p.startTs = ts;
+              }
+
+              var t = clamp01((ts - p.startTs) / p.flightMs);
+              if (t >= 1) {
+                if (!p.done) {
+                  p.done = true;
+                  el.style.opacity = "0";
+                }
+                arrivedCount++;
+              } else {
+                poseParticle(el, t);
+              }
             }
 
-            var gather = clamp01((u - 0.4) / 0.6);
+            // Singularity grows as particles arrive
+            var gather = arrivedCount / n;
             var ge = easeInCubic(gather);
-            singularity.style.opacity = String(Math.min(1, ge * 1.15));
-            singularity.style.transform = "scale(" + (0.08 + ge * 0.92) + ")";
+            singularity.style.opacity = String(Math.min(1, ge * 1.1));
+            singularity.style.transform = "scale(" + (0.06 + ge * 0.94) + ")";
 
-            if (u < 1) {
-              requestAnimationFrame(implodeFrame);
+            if (arrivedCount < n || ts < endAt) {
+              requestAnimationFrame(particleFrame);
             } else {
               phase = "done";
               for (var j = 0; j < n; j++) charEls[j].style.opacity = "0";
@@ -262,7 +324,7 @@
             }
           }
 
-          requestAnimationFrame(implodeFrame);
+          requestAnimationFrame(particleFrame);
         }
 
         function tick(ts) {
@@ -280,7 +342,7 @@
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
             if (t >= 1) {
-              implode(ts);
+              startParticlizer(ts);
               return;
             }
             requestAnimationFrame(tick);

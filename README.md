@@ -23,11 +23,12 @@ Then visit http://127.0.0.1:43127
 In `index.html` (and `dev/ascii-ritual/index.html`), edit the `CONFIG` object in the script:
 
 ```js
-RAMP_MS: 10 * 1000, // slow → fast (tuning; was 60s)
-START_RPS: 0.03,    // start speed (revs/sec)
-END_RPS: 8,         // end speed before implode
-IMPLODE_MS: 2200,   // break-apart + suck-in
-DOT_PX: 100,        // final center dot
+RAMP_MS: 10 * 1000,           // slow → fast (tuning; was 60s)
+START_RPS: 0.03,              // start speed (revs/sec)
+END_RPS: 8,                   // max speed before particlizer
+PARTICLE_STAGGER_MS: 55,      // delay between each letter drop
+PARTICLE_FLIGHT_MS: 520,      // one letter’s fall into center
+DOT_PX: 100,                  // final center dot
 ```
 
 ## GitHub Pages
