@@ -30,7 +30,7 @@ START_RPS: 0.03,
 END_RPS: 8,
 PARTICLE_STAGGER_MS: 55,      // delay between letter drops
 PARTICLE_FLIGHT_MS: 520,      // fall duration per letter
-DOT_PX: 25,                   // final black circle size
+DOT_PX: 50,                   // final black circle size
 ```
 
 ## Thumby silver (🜛)
