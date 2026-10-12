@@ -31,6 +31,7 @@ END_RPS: 8,
 PARTICLE_STAGGER_MS: 55,      // delay between letter drops
 PARTICLE_FLIGHT_MS: 520,      // fall duration per letter
 DOT_PX: 75,                   // final black circle size
+GROW_PER_SEC: 0.32,           // max circle fill rate (smooth, ~3s)
 ```
 
 ## Thumby silver (🜛)
