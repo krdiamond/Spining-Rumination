@@ -27,11 +27,12 @@ In `index.html`, edit the `CONFIG` object:
 ```js
 RAMP_MS: 10 * 1000,           // slow → fast spin
 START_RPS: 0.03,
-END_RPS: 8,
-PARTICLE_STAGGER_MS: 55,      // delay between letter drops
-PARTICLE_FLIGHT_MS: 520,      // fall duration per letter
+END_RPS: 1,
+PARTICLE_STAGGER_MS: 90,      // delay between letter drops
+PARTICLE_FLIGHT_MS: 700,      // fall duration per letter
 DOT_PX: 75,                   // final black circle size
-GROW_PER_SEC: 0.32,           // max circle fill rate (smooth, ~3s)
+GROW_MS: 3200,                // circle grows smoothly over this many ms
+PIXEL_SCALE: 4,               // Thumby glyph size (was 2)
 ```
 
 ## Thumby silver (🜛)

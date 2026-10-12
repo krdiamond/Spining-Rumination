@@ -11,7 +11,8 @@
        * Font: Thumby default font5x7.bin (5×7 VLSB bitmap).
        */
       :root {
-        --radius: min(36vmin, 240px);
+        /* Sized for PIXEL_SCALE 4 glyphs so letters stay clear on the ring */
+        --radius: min(40vmin, 268px);
       }
 
       html,
@@ -25,8 +26,8 @@
       /* Do not name this class "ring" — Tailwind's ring utility draws a blue box. */
       .mantra-wheel {
         position: relative;
-        width: min(78vmin, 520px);
-        height: min(78vmin, 520px);
+        width: min(86vmin, 580px);
+        height: min(86vmin, 580px);
         will-change: transform;
       }
 
@@ -54,20 +55,20 @@
         transform: scale(0);
         pointer-events: none;
         will-change: transform, opacity;
-        z-index: 2;
+        z-index: 5;
       }
     </style>
   </head>
   <body class="bg-white">
-    <main class="flex h-full w-full items-center justify-center bg-white">
+    <main class="relative flex h-full w-full items-center justify-center bg-white">
+      <!-- Outside the spinning wheel so growth stays readable -->
+      <div class="singularity" id="singularity" aria-hidden="true"></div>
       <div
         class="mantra-wheel"
         id="mantra-wheel"
         role="img"
         aria-label="End Rumination Through Decisive Acceptance"
-      >
-        <div class="singularity" id="singularity" aria-hidden="true"></div>
-      </div>
+      ></div>
     </main>
     <script>
       (function () {
@@ -83,19 +84,24 @@
           START_RPS: 0.03,
           END_RPS: 1,
           // Particlizer
-          PARTICLE_STAGGER_MS: 55, // delay between releasing each letter
-          PARTICLE_STAGGER_JITTER_MS: 45, // random extra delay per letter
-          PARTICLE_FLIGHT_MS: 520, // time for one letter to reach the center
-          PARTICLE_FLIGHT_JITTER_MS: 180, // random extra flight time
-          // Max fill units/sec toward full size (~3s to grow when letters keep arriving)
-          GROW_PER_SEC: 0.32,
+          PARTICLE_STAGGER_MS: 90, // delay between releasing each letter
+          PARTICLE_STAGGER_JITTER_MS: 50, // random extra delay per letter
+          PARTICLE_FLIGHT_MS: 700, // time for one letter to reach the center
+          PARTICLE_FLIGHT_JITTER_MS: 220, // random extra flight time
+          // Circle grows smoothly over this many ms (time-based, not per-letter jumps)
+          GROW_MS: 3200,
           DOT_PX: 75,
           FONT_URL: "font5x7.bin",
           FONT_W: 5,
           FONT_H: 7,
-          PIXEL_SCALE: 2,
+          PIXEL_SCALE: 4,
           INK: "#111111",
         };
+
+        // ?fast=1 shortens the spin ramp for local testing
+        if (/[?&]fast=1(?:&|$)/.test(location.search)) {
+          CONFIG.RAMP_MS = 800;
+        }
 
         var wheel = document.getElementById("mantra-wheel");
         var singularity = document.getElementById("singularity");
@@ -233,13 +239,18 @@
         var currentRps = CONFIG.START_RPS;
         var arrivedCount = 0;
 
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
         function startParticlizer(now) {
           phase = "particles";
           arrivedCount = 0;
-          // Black circle starts tiny; smoothFill eases toward fill (no jumps)
-          var smoothFill = 0;
+          var growStart = now;
+          // Black circle starts tiny; scale is driven purely by elapsed time
           singularity.style.opacity = "1";
           singularity.style.transform = "scale(0.04)";
+          singularity.dataset.scale = "0.04";
           var n = charEls.length;
           var order = shuffle(
             charEls.map(function (_, i) {
@@ -268,13 +279,15 @@
             };
           }
 
-          // Total duration ≈ last release + its flight
-          var endAt =
+          // Run until letters finish and the circle has finished growing
+          var endAt = Math.max(
             now +
-            releaseAt +
-            CONFIG.PARTICLE_FLIGHT_MS +
-            CONFIG.PARTICLE_FLIGHT_JITTER_MS +
-            200;
+              releaseAt +
+              CONFIG.PARTICLE_FLIGHT_MS +
+              CONFIG.PARTICLE_FLIGHT_JITTER_MS +
+              200,
+            now + CONFIG.GROW_MS + 100
+          );
 
           function particleFrame(ts) {
             if (lastTs === null) lastTs = ts;
@@ -287,7 +300,6 @@
             wheel.style.transform = "rotate(" + rotation + "deg)";
 
             arrivedCount = 0;
-            var fill = 0; // continuous 0→1 as letters fly in (not stepped arrivals)
             for (var i = 0; i < n; i++) {
               var el = charEls[i];
               var p = el._particle;
@@ -311,36 +323,26 @@
                   el.style.opacity = "0";
                 }
                 arrivedCount++;
-                fill += 1;
               } else {
                 poseParticle(el, t);
-                // Grow while the letter is in flight, not only when it lands
-                fill += t;
               }
             }
 
-            var targetFill = fill / n;
-            // Ease toward fill, but hard-cap speed so growth is gradual (no jumps)
-            var rate = arrivedCount >= n ? 1.8 : 1.2;
-            var follow = 1 - Math.exp(-dt * rate);
-            var step = (targetFill - smoothFill) * follow;
-            var maxStep = CONFIG.GROW_PER_SEC * dt;
-            if (step > maxStep) step = maxStep;
-            if (step < 0) step = 0;
-            smoothFill += step;
-            if (smoothFill > 0.999) smoothFill = 1;
-
+            // Gradual growth: ease scale 0.04→1 over GROW_MS (no per-letter jumps)
+            var growT = clamp01((ts - growStart) / CONFIG.GROW_MS);
+            var scale = 0.04 + easeOutCubic(growT) * 0.96;
             singularity.style.opacity = "1";
-            singularity.style.transform =
-              "scale(" + (0.04 + smoothFill * 0.96) + ")";
+            singularity.style.transform = "scale(" + scale + ")";
+            singularity.dataset.scale = String(scale);
 
-            if (arrivedCount < n || ts < endAt || smoothFill < 0.999) {
+            if (arrivedCount < n || ts < endAt || growT < 1) {
               requestAnimationFrame(particleFrame);
             } else {
               phase = "done";
               for (var j = 0; j < n; j++) charEls[j].style.opacity = "0";
               singularity.style.opacity = "1";
               singularity.style.transform = "scale(1)";
+              singularity.dataset.scale = "1";
               wheel.style.transform = "rotate(" + rotation + "deg)";
             }
           }
