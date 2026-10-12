@@ -25,6 +25,7 @@ Open http://127.0.0.1:43127/
 In `index.html`, edit the `CONFIG` object:
 
 ```js
+SLOW_HOLD_MS: 60 * 1000,      // 1 min at slowest spin before ramp
 RAMP_MS: 10 * 1000,           // slow → fast spin
 START_RPS: 0.03,
 END_RPS: 1,

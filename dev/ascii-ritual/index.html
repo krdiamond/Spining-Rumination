@@ -80,6 +80,7 @@
         var CONFIG = {
           MESSAGE: "End Rumination Through Decisive Acceptance",
           WORD_GAP_SLOTS: 2.5,
+          SLOW_HOLD_MS: 60 * 1000, // hold at slowest spin before the ramp
           RAMP_MS: 10 * 1000,
           START_RPS: 0.03,
           END_RPS: 1,
@@ -98,8 +99,9 @@
           INK: "#111111",
         };
 
-        // ?fast=1 shortens the spin ramp for local testing
+        // ?fast=1 shortens hold + ramp for local testing
         if (/[?&]fast=1(?:&|$)/.test(location.search)) {
+          CONFIG.SLOW_HOLD_MS = 400;
           CONFIG.RAMP_MS = 800;
         }
 
@@ -235,9 +237,10 @@
         var rotation = 0;
         var lastTs = null;
         var startTs = null;
-        var phase = "ramp";
+        var phase = "slow";
         var currentRps = CONFIG.START_RPS;
         var arrivedCount = 0;
+        var rampStartTs = null;
 
         function easeOutCubic(t) {
           return 1 - Math.pow(1 - t, 3);
@@ -356,8 +359,22 @@
           var dt = Math.min(0.05, (ts - lastTs) / 1000);
           lastTs = ts;
 
+          if (phase === "slow") {
+            currentRps = CONFIG.START_RPS;
+            rotation += currentRps * 360 * dt;
+            wheel.style.transform = "rotate(" + rotation + "deg)";
+
+            if (ts - startTs >= CONFIG.SLOW_HOLD_MS) {
+              phase = "ramp";
+              rampStartTs = ts;
+            }
+            requestAnimationFrame(tick);
+            return;
+          }
+
           if (phase === "ramp") {
-            var t = clamp01((ts - startTs) / CONFIG.RAMP_MS);
+            if (rampStartTs === null) rampStartTs = ts;
+            var t = clamp01((ts - rampStartTs) / CONFIG.RAMP_MS);
             currentRps =
               CONFIG.START_RPS +
               (CONFIG.END_RPS - CONFIG.START_RPS) * easeInCubic(t);
