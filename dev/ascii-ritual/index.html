@@ -214,10 +214,10 @@
             var u = (t - 0.12) / 0.88;
             radiusFactor = (1 + 0.08) * (1 - easeInCubic(u));
           }
-          var scale = Math.max(0.05, 1 - e * 0.95);
-          var opacity = t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15;
+          // Stay fully opaque — letters fall into the black circle, no fade
+          var scale = Math.max(0.15, 1 - e * 0.7);
 
-          el.style.opacity = String(opacity);
+          el.style.opacity = "1";
           el.style.transform =
             "translate(-50%, -50%) rotate(" +
             deg +
@@ -238,6 +238,9 @@
         function startParticlizer(now) {
           phase = "particles";
           arrivedCount = 0;
+          // Black circle is already there for letters to fall into
+          singularity.style.opacity = "1";
+          singularity.style.transform = "scale(0.35)";
           var n = charEls.length;
           var order = shuffle(
             charEls.map(function (_, i) {
@@ -299,6 +302,7 @@
               if (t >= 1) {
                 if (!p.done) {
                   p.done = true;
+                  // Snap into the black circle (hide only once fully arrived)
                   el.style.opacity = "0";
                 }
                 arrivedCount++;
@@ -307,11 +311,12 @@
               }
             }
 
-            // Singularity grows as particles arrive
+            // Black circle present from the start of the fall, grows as letters land
             var gather = arrivedCount / n;
             var ge = easeInCubic(gather);
-            singularity.style.opacity = String(Math.min(1, ge * 1.1));
-            singularity.style.transform = "scale(" + (0.06 + ge * 0.94) + ")";
+            singularity.style.opacity = "1";
+            singularity.style.transform =
+              "scale(" + (0.35 + ge * 0.65) + ")";
 
             if (arrivedCount < n || ts < endAt) {
               requestAnimationFrame(particleFrame);
